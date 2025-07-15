@@ -3,7 +3,7 @@ const getApiBaseUrl = () => {
   // Check if we're in production
   if (import.meta.env.PROD) {
     // Use environment variable if set, otherwise use a default production URL
-    return import.meta.env.VITE_API_URL || 'https://your-backend-app.railway.app/api'
+    return import.meta.env.VITE_API_URL || 'https://your-backend-app.onrender.com/api'
   }
   
   // Development environment

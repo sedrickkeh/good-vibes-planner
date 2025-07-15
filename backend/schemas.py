@@ -38,7 +38,7 @@ class Todo(TodoBase):
     completed_at: Optional[datetime] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # Calendar schemas
 class CalendarBase(BaseModel):
@@ -58,7 +58,7 @@ class Calendar(CalendarBase):
     id: str
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # Template schemas
 class TemplateBase(BaseModel):
@@ -78,7 +78,7 @@ class Template(TemplateBase):
     id: str
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # Data migration schema
 class MigrationData(BaseModel):
