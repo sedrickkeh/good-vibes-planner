@@ -1,16 +1,14 @@
 import React, { useState } from 'react'
 import { format, formatDistanceToNow, isSameDay } from 'date-fns'
 import { useTodos } from '../contexts/TodoContext'
-import { Check, Edit2, Trash2, Clock, Calendar, Tag, MoreVertical } from 'lucide-react'
+import { Check, Edit2, Trash2, Calendar, MoreVertical } from 'lucide-react'
 import clsx from 'clsx'
 
 function TodoItem({ todo, compact = false }) {
-  const { updateTodo, deleteTodo, projects } = useTodos()
+  const { updateTodo, deleteTodo } = useTodos()
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(todo.title)
   const [showActions, setShowActions] = useState(false)
-
-  const project = projects.find(p => p.id === todo.projectId)
 
   // Helper function to safely parse date strings and ensure local timezone
   const parseTaskDate = (dateString) => {
@@ -244,7 +242,6 @@ function TodoItem({ todo, compact = false }) {
             
             {migratedTodo.estimatedTime && (
               <span className="flex items-center">
-                <Clock className="w-3 h-3 mr-1" />
                 {migratedTodo.estimatedTime}min
               </span>
             )}
@@ -262,15 +259,6 @@ function TodoItem({ todo, compact = false }) {
             )}
           </div>
         </div>
-
-        {/* Project Badge */}
-        {project && (
-          <div 
-            className="flex-shrink-0 w-3 h-3 rounded-full"
-            style={{ backgroundColor: project.color }}
-            title={project.name}
-          />
-        )}
       </div>
 
       {/* Click outside to close actions */}

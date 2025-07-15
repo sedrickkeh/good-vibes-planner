@@ -1,10 +1,10 @@
 import React, { useState } from 'react'
 import { useTodos } from '../contexts/TodoContext'
-import { X, Calendar, Clock, Flag, Tag, Repeat, Save, Sparkles } from 'lucide-react'
+import { X, Calendar, Flag, Repeat, Save, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 
 function TodoCreator({ onClose }) {
-  const { addTodo, projects, templates, addTemplate, calendars } = useTodos()
+  const { addTodo, templates, addTemplate, calendars } = useTodos()
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -12,7 +12,6 @@ function TodoCreator({ onClose }) {
     endDate: '',
     estimatedTime: '',
     priority: 'medium',
-    projectId: 'personal',
     calendarId: calendars.length > 0 ? calendars[0].id : '',
     isRecurring: false,
     recurringPattern: 'daily',
@@ -92,7 +91,6 @@ function TodoCreator({ onClose }) {
       endDate: template.endDate || '',
       estimatedTime: template.estimatedTime || '',
       priority: template.priority || 'medium',
-      projectId: template.projectId || 'personal',
       calendarId: template.calendarId || (calendars.length > 0 ? calendars[0].id : '')
     })
   }
@@ -205,7 +203,6 @@ function TodoCreator({ onClose }) {
           {/* Estimated Time */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Clock className="w-4 h-4 inline mr-1" />
               Estimated Time (minutes)
             </label>
             <input
@@ -219,7 +216,7 @@ function TodoCreator({ onClose }) {
             />
           </div>
 
-          {/* Priority and Project */}
+          {/* Priority and Calendar */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Priority */}
             <div>
@@ -235,25 +232,6 @@ function TodoCreator({ onClose }) {
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
-              </select>
-            </div>
-
-            {/* Project Selection */}
-            <div className="space-y-2">
-              <label className="flex items-center text-sm font-medium text-gray-700">
-                <Tag className="w-4 h-4 mr-2" />
-                Project
-              </label>
-              <select
-                value={formData.projectId}
-                onChange={(e) => handleChange('projectId', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {projects.map(project => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
               </select>
             </div>
 

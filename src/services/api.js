@@ -1,22 +1,14 @@
-const API_BASE_URL = 'http://10.242.11.210:8000/api'
+import authService from './auth'
+
+import { API_BASE_URL } from '../config/api'
 
 class ApiClient {
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`
-    const config = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      ...options,
-    }
-
-    if (config.body && typeof config.body === 'object') {
-      config.body = JSON.stringify(config.body)
-    }
-
+    
+    // Use the auth service for authenticated requests
     try {
-      const response = await fetch(url, config)
+      const response = await authService.makeAuthenticatedRequest(url, options)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -77,31 +69,6 @@ class ApiClient {
 
   async deleteCalendar(id) {
     return this.request(`/calendars/${id}`, {
-      method: 'DELETE',
-    })
-  }
-
-  // Project endpoints
-  async getProjects() {
-    return this.request('/projects')
-  }
-
-  async createProject(project) {
-    return this.request('/projects', {
-      method: 'POST',
-      body: project,
-    })
-  }
-
-  async updateProject(id, updates) {
-    return this.request(`/projects/${id}`, {
-      method: 'PUT',
-      body: updates,
-    })
-  }
-
-  async deleteProject(id) {
-    return this.request(`/projects/${id}`, {
       method: 'DELETE',
     })
   }

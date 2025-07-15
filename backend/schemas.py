@@ -10,7 +10,6 @@ class TodoBase(BaseModel):
     end_date: Optional[str] = None
     estimated_time: Optional[int] = None
     priority: str = "medium"
-    project_id: str
     calendar_id: Optional[str] = None
     is_recurring: Optional[bool] = False
     recurring_pattern: Optional[str] = None
@@ -26,7 +25,6 @@ class TodoUpdate(BaseModel):
     end_date: Optional[str] = None
     estimated_time: Optional[int] = None
     priority: Optional[str] = None
-    project_id: Optional[str] = None
     calendar_id: Optional[str] = None
     is_completed: Optional[bool] = None
     is_recurring: Optional[bool] = None
@@ -62,26 +60,6 @@ class Calendar(CalendarBase):
     class Config:
         from_attributes = True
 
-# Project schemas
-class ProjectBase(BaseModel):
-    name: str
-    color: str
-    description: Optional[str] = None
-
-class ProjectCreate(ProjectBase):
-    pass
-
-class ProjectUpdate(BaseModel):
-    name: Optional[str] = None
-    color: Optional[str] = None
-    description: Optional[str] = None
-
-class Project(ProjectBase):
-    id: str
-
-    class Config:
-        from_attributes = True
-
 # Template schemas
 class TemplateBase(BaseModel):
     name: str
@@ -91,7 +69,6 @@ class TemplateBase(BaseModel):
     end_date: Optional[str] = None
     estimated_time: Optional[int] = None
     priority: str = "medium"
-    project_id: str
     calendar_id: Optional[str] = None
 
 class TemplateCreate(TemplateBase):
@@ -107,5 +84,4 @@ class Template(TemplateBase):
 class MigrationData(BaseModel):
     todos: List[dict] = []
     calendars: List[dict] = []
-    projects: List[dict] = []
     templates: List[dict] = [] 

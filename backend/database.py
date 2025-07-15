@@ -1,9 +1,11 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Base
+from models import Base, Calendar as CalendarModel
+from config import settings
+import time
 
-# SQLite database URL
-SQLALCHEMY_DATABASE_URL = "sqlite:///./good_vibes.db"
+# Database URL from configuration
+SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
 
 # Create engine
 engine = create_engine(
@@ -25,22 +27,38 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# Initialize default calendars for a new user
+def init_user_data(username: str):
+    db = SessionLocal()
+    try:
+        # Check if user already has calendars
+        existing_calendars = db.query(CalendarModel).filter(CalendarModel.user_id == username).count()
+        
+        if existing_calendars == 0:
+            # Create default calendars
+            default_calendars = [
+                {"name": "Personal", "color": "#3B82F6", "is_default": True},
+                {"name": "Work", "color": "#10B981", "is_default": False},
+                {"name": "Health", "color": "#F59E0B", "is_default": False},
+            ]
+            
+            for cal_data in default_calendars:
+                calendar = CalendarModel(
+                    id=str(int(time.time() * 1000)),
+                    user_id=username,
+                    name=cal_data["name"],
+                    color=cal_data["color"],
+                    is_default=cal_data["is_default"]
+                )
+                db.add(calendar)
+                # Small delay to ensure unique timestamps
+                time.sleep(0.001)
+            
+            db.commit()
+    finally:
+        db.close()
         
 # Initialize database
 def init_db():
-    create_tables()
-    
-    # Insert default projects if none exist
-    db = SessionLocal()
-    try:
-        from models import Project
-        if not db.query(Project).first():
-            default_projects = [
-                Project(id='personal', name='Personal', color='#3b82f6'),
-                Project(id='work', name='Work', color='#10b981'),
-                Project(id='health', name='Health', color='#f59e0b'),
-            ]
-            db.add_all(default_projects)
-            db.commit()
-    finally:
-        db.close() 
+    create_tables() 

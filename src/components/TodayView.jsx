@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { format, isToday, startOfDay } from 'date-fns'
 import { useTodos } from '../contexts/TodoContext'
 import TodoItem from './TodoItem'
-import { Clock, CheckCircle, Circle, Calendar } from 'lucide-react'
+import { CheckCircle, Circle, Calendar } from 'lucide-react'
 
 function TodayView() {
   const { todos, calendars } = useTodos()
@@ -255,15 +255,11 @@ function TodayView() {
 
       {/* Empty State */}
       {filteredTodos.length === 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-          <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-600 mb-2">
-            {todayTodos.length === 0 ? 'No tasks for today' : 'No tasks match your filters'}
-          </h3>
-          <p className="text-gray-500">
-            {todayTodos.length === 0 
-              ? 'Create a new task to get started with your day!' 
-              : 'Try adjusting your filters or add some tasks for today.'}
+        <div className="text-center py-12 bg-white rounded-lg shadow-sm border border-gray-200">
+          <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-800">All clear for today!</h3>
+          <p className="text-gray-600 mt-2">
+            No tasks scheduled for today. Add a new task to get started.
           </p>
         </div>
       )}

@@ -6,7 +6,6 @@ const TodoContext = createContext()
 const initialState = {
   todos: [],
   calendars: [],
-  projects: [],
   templates: [],
   loading: false,
   error: null
@@ -25,7 +24,6 @@ function todoReducer(state, action) {
         ...state, 
         todos: action.payload.todos || [],
         calendars: action.payload.calendars || [],
-        projects: action.payload.projects || [],
         templates: action.payload.templates || [],
         loading: false,
         error: null
@@ -72,27 +70,6 @@ function todoReducer(state, action) {
         todos: state.todos.filter(todo => todo.calendarId !== action.payload.id)
       }
     
-    case 'SET_PROJECTS':
-      return { ...state, projects: action.payload }
-    
-    case 'ADD_PROJECT':
-      return { ...state, projects: [...state.projects, action.payload] }
-    
-    case 'UPDATE_PROJECT':
-      return {
-        ...state,
-        projects: state.projects.map(project =>
-          project.id === action.payload.id ? { ...project, ...action.payload } : project
-        )
-      }
-    
-    case 'DELETE_PROJECT':
-      return {
-        ...state,
-        projects: state.projects.filter(project => project.id !== action.payload.id),
-        todos: state.todos.filter(todo => todo.projectId !== action.payload.id)
-      }
-    
     case 'SET_TEMPLATES':
       return { ...state, templates: action.payload }
     
@@ -113,6 +90,8 @@ function todoReducer(state, action) {
 export function TodoProvider({ children }) {
   const [state, dispatch] = useReducer(todoReducer, initialState)
   const [migrationAttempted, setMigrationAttempted] = useState(false)
+  const [dataInitialized, setDataInitialized] = useState(false)
+  const [currentUser, setCurrentUser] = useState(null)
 
   // Helper function to convert API response fields to frontend format
   const transformApiTodo = (apiTodo) => ({
@@ -120,7 +99,6 @@ export function TodoProvider({ children }) {
     startDate: apiTodo.start_date,
     endDate: apiTodo.end_date,
     estimatedTime: apiTodo.estimated_time,
-    projectId: apiTodo.project_id,
     calendarId: apiTodo.calendar_id,
     isCompleted: apiTodo.is_completed,
     createdAt: apiTodo.created_at,
@@ -138,7 +116,6 @@ export function TodoProvider({ children }) {
     end_date: todo.endDate || null,
     estimated_time: todo.estimatedTime || null,
     priority: todo.priority || 'medium',
-    project_id: todo.projectId,
     calendar_id: todo.calendarId || null,
     is_recurring: todo.isRecurring || false,
     recurring_pattern: todo.recurringPattern || null,
@@ -163,10 +140,9 @@ export function TodoProvider({ children }) {
     try {
       dispatch({ type: 'SET_LOADING', payload: true })
       
-      const [todos, calendars, projects, templates] = await Promise.all([
+      const [todos, calendars, templates] = await Promise.all([
         apiClient.getTodos(),
         apiClient.getCalendars(),
-        apiClient.getProjects(),
         apiClient.getTemplates()
       ])
 
@@ -175,7 +151,6 @@ export function TodoProvider({ children }) {
         payload: {
           todos: todos.map(transformApiTodo),
           calendars: calendars.map(transformApiCalendar),
-          projects,
           templates
         }
       })
@@ -216,15 +191,33 @@ export function TodoProvider({ children }) {
     }
   }
 
-  // Initialize data on mount
-  useEffect(() => {
-    const initializeData = async () => {
-      await attemptMigration()
-      await loadAllData()
+  // Function to reset context state (called when user logs out)
+  const resetData = () => {
+    dispatch({ type: 'LOAD_ALL_DATA', payload: { todos: [], calendars: [], templates: [] } })
+    setDataInitialized(false)
+    setMigrationAttempted(false)
+    setCurrentUser(null)
+  }
+
+  // Function to initialize data (called externally when authenticated)
+  const initializeData = async (username = null, forceReload = false) => {
+    // If different user, always reload
+    if (username && currentUser && username !== currentUser) {
+      forceReload = true
     }
     
-    initializeData()
-  }, [])
+    if (dataInitialized && !forceReload) return
+    
+    try {
+      await attemptMigration()
+      await loadAllData()
+      setDataInitialized(true)
+      setCurrentUser(username)
+    } catch (error) {
+      console.log('Data initialization failed - likely not authenticated')
+      dispatch({ type: 'SET_ERROR', payload: 'Authentication required' })
+    }
+  }
 
   // Todo operations
   const addTodo = async (todo) => {
@@ -260,7 +253,6 @@ export function TodoProvider({ children }) {
       if (updates.endDate !== undefined) apiUpdates.end_date = updates.endDate
       if (updates.estimatedTime !== undefined) apiUpdates.estimated_time = updates.estimatedTime
       if (updates.priority !== undefined) apiUpdates.priority = updates.priority
-      if (updates.projectId !== undefined) apiUpdates.project_id = updates.projectId
       if (updates.calendarId !== undefined) apiUpdates.calendar_id = updates.calendarId
       if (updates.isCompleted !== undefined) apiUpdates.is_completed = updates.isCompleted
 
@@ -333,42 +325,6 @@ export function TodoProvider({ children }) {
     }
   }
 
-  // Project operations
-  const addProject = async (project) => {
-    try {
-      const createdProject = await apiClient.createProject(project)
-      dispatch({ type: 'ADD_PROJECT', payload: createdProject })
-      return createdProject
-    } catch (error) {
-      console.error('Failed to create project:', error)
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to create project' })
-      throw error
-    }
-  }
-
-  const updateProject = async (id, updates) => {
-    try {
-      const updatedProject = await apiClient.updateProject(id, updates)
-      dispatch({ type: 'UPDATE_PROJECT', payload: updatedProject })
-      return updatedProject
-    } catch (error) {
-      console.error('Failed to update project:', error)
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to update project' })
-      throw error
-    }
-  }
-
-  const deleteProject = async (id) => {
-    try {
-      await apiClient.deleteProject(id)
-      dispatch({ type: 'DELETE_PROJECT', payload: { id } })
-    } catch (error) {
-      console.error('Failed to delete project:', error)
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to delete project' })
-      throw error
-    }
-  }
-
   // Template operations
   const addTemplate = async (template) => {
     try {
@@ -380,7 +336,6 @@ export function TodoProvider({ children }) {
         end_date: template.endDate || null,
         estimated_time: template.estimatedTime || null,
         priority: template.priority || 'medium',
-        project_id: template.projectId,
         calendar_id: template.calendarId || null
       }
       
@@ -391,7 +346,6 @@ export function TodoProvider({ children }) {
         startDate: createdTemplate.start_date,
         endDate: createdTemplate.end_date,
         estimatedTime: createdTemplate.estimated_time,
-        projectId: createdTemplate.project_id,
         calendarId: createdTemplate.calendar_id
       }
       
@@ -429,7 +383,6 @@ export function TodoProvider({ children }) {
       endDate: template.endDate,
       estimatedTime: template.estimatedTime,
       priority: template.priority,
-      projectId: template.projectId,
       calendarId: defaultCalendarId,
       ...overrides
     }
@@ -445,13 +398,12 @@ export function TodoProvider({ children }) {
     addCalendar,
     updateCalendar,
     deleteCalendar,
-    addProject,
-    updateProject,
-    deleteProject,
     addTemplate,
     deleteTemplate,
     createTodoFromTemplate,
-    loadAllData
+    loadAllData,
+    initializeData,
+    resetData
   }
 
   return (

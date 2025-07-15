@@ -1,61 +1,98 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from typing import List
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
+from contextlib import asynccontextmanager
+from pydantic import BaseModel
 
 from database import get_db, init_db
-from models import Todo as TodoModel, Calendar as CalendarModel, Project as ProjectModel, Template as TemplateModel
+from models import Todo as TodoModel, Calendar as CalendarModel, Template as TemplateModel
 from schemas import (
     Todo, TodoCreate, TodoUpdate,
     Calendar, CalendarCreate, CalendarUpdate,
-    Project, ProjectCreate, ProjectUpdate,
     Template, TemplateCreate,
     MigrationData
 )
+from auth import (
+    authenticate_user, create_access_token, get_current_user, create_user,
+    Token, User, UserCreate, ACCESS_TOKEN_EXPIRE_MINUTES
+)
+from config import settings
 
-app = FastAPI(title="Good Vibes API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    init_db()
+    yield
+    # Shutdown (if needed)
+
+app = FastAPI(title="Good Vibes API", version="1.0.0", lifespan=lifespan)
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # React dev server
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
-
-# Initialize database on startup
-@app.on_event("startup")
-def startup_event():
-    init_db()
 
 # Health check
 @app.get("/")
 def read_root():
     return {"message": "Good Vibes API is running!"}
 
+# Authentication endpoints
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post("/api/token", response_model=Token)
+async def login_for_access_token(login_data: LoginRequest):
+    user = authenticate_user(login_data.username, login_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/api/users/me", response_model=User)
+async def read_users_me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+@app.post("/api/register", response_model=User)
+async def register_user(user_data: UserCreate):
+    return create_user(user_data)
+
 # ================= TODO ENDPOINTS =================
 
 @app.get("/api/todos", response_model=List[Todo])
-def get_todos(db: Session = Depends(get_db)):
-    return db.query(TodoModel).all()
+def get_todos(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return db.query(TodoModel).filter(TodoModel.user_id == current_user.username).all()
 
 @app.post("/api/todos", response_model=Todo)
-def create_todo(todo: TodoCreate, db: Session = Depends(get_db)):
+def create_todo(todo: TodoCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Generate ID using timestamp (matching frontend behavior)
     todo_id = str(int(time.time() * 1000))
     
     db_todo = TodoModel(
         id=todo_id,
+        user_id=current_user.username,
         title=todo.title,
         description=todo.description,
         start_date=todo.start_date,
         end_date=todo.end_date,
         estimated_time=todo.estimated_time,
         priority=todo.priority,
-        project_id=todo.project_id,
         calendar_id=todo.calendar_id,
         is_completed=False,
         created_at=datetime.utcnow(),
@@ -70,15 +107,15 @@ def create_todo(todo: TodoCreate, db: Session = Depends(get_db)):
     return db_todo
 
 @app.get("/api/todos/{todo_id}", response_model=Todo)
-def get_todo(todo_id: str, db: Session = Depends(get_db)):
-    todo = db.query(TodoModel).filter(TodoModel.id == todo_id).first()
+def get_todo(todo_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    todo = db.query(TodoModel).filter(TodoModel.id == todo_id, TodoModel.user_id == current_user.username).first()
     if not todo:
         raise HTTPException(status_code=404, detail="Todo not found")
     return todo
 
 @app.put("/api/todos/{todo_id}", response_model=Todo)
-def update_todo(todo_id: str, todo_update: TodoUpdate, db: Session = Depends(get_db)):
-    todo = db.query(TodoModel).filter(TodoModel.id == todo_id).first()
+def update_todo(todo_id: str, todo_update: TodoUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    todo = db.query(TodoModel).filter(TodoModel.id == todo_id, TodoModel.user_id == current_user.username).first()
     if not todo:
         raise HTTPException(status_code=404, detail="Todo not found")
     
@@ -98,8 +135,8 @@ def update_todo(todo_id: str, todo_update: TodoUpdate, db: Session = Depends(get
     return todo
 
 @app.delete("/api/todos/{todo_id}")
-def delete_todo(todo_id: str, db: Session = Depends(get_db)):
-    todo = db.query(TodoModel).filter(TodoModel.id == todo_id).first()
+def delete_todo(todo_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    todo = db.query(TodoModel).filter(TodoModel.id == todo_id, TodoModel.user_id == current_user.username).first()
     if not todo:
         raise HTTPException(status_code=404, detail="Todo not found")
     
@@ -110,19 +147,20 @@ def delete_todo(todo_id: str, db: Session = Depends(get_db)):
 # ================= CALENDAR ENDPOINTS =================
 
 @app.get("/api/calendars", response_model=List[Calendar])
-def get_calendars(db: Session = Depends(get_db)):
-    return db.query(CalendarModel).all()
+def get_calendars(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return db.query(CalendarModel).filter(CalendarModel.user_id == current_user.username).all()
 
 @app.post("/api/calendars", response_model=Calendar)
-def create_calendar(calendar: CalendarCreate, db: Session = Depends(get_db)):
+def create_calendar(calendar: CalendarCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Generate ID using timestamp
     calendar_id = str(int(time.time() * 1000))
     
-    # Check if this will be the first calendar (make it default)
-    is_first_calendar = db.query(CalendarModel).count() == 0
+    # Check if this will be the first calendar for this user (make it default)
+    is_first_calendar = db.query(CalendarModel).filter(CalendarModel.user_id == current_user.username).count() == 0
     
     db_calendar = CalendarModel(
         id=calendar_id,
+        user_id=current_user.username,
         name=calendar.name,
         color=calendar.color,
         is_default=is_first_calendar or calendar.is_default
@@ -134,8 +172,8 @@ def create_calendar(calendar: CalendarCreate, db: Session = Depends(get_db)):
     return db_calendar
 
 @app.put("/api/calendars/{calendar_id}", response_model=Calendar)
-def update_calendar(calendar_id: str, calendar_update: CalendarUpdate, db: Session = Depends(get_db)):
-    calendar = db.query(CalendarModel).filter(CalendarModel.id == calendar_id).first()
+def update_calendar(calendar_id: str, calendar_update: CalendarUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    calendar = db.query(CalendarModel).filter(CalendarModel.id == calendar_id, CalendarModel.user_id == current_user.username).first()
     if not calendar:
         raise HTTPException(status_code=404, detail="Calendar not found")
     
@@ -147,78 +185,31 @@ def update_calendar(calendar_id: str, calendar_update: CalendarUpdate, db: Sessi
     return calendar
 
 @app.delete("/api/calendars/{calendar_id}")
-def delete_calendar(calendar_id: str, db: Session = Depends(get_db)):
-    calendar = db.query(CalendarModel).filter(CalendarModel.id == calendar_id).first()
+def delete_calendar(calendar_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    calendar = db.query(CalendarModel).filter(CalendarModel.id == calendar_id, CalendarModel.user_id == current_user.username).first()
     if not calendar:
         raise HTTPException(status_code=404, detail="Calendar not found")
     
-    # Delete associated todos
-    db.query(TodoModel).filter(TodoModel.calendar_id == calendar_id).delete()
+    # Delete associated todos (only for this user)
+    db.query(TodoModel).filter(TodoModel.calendar_id == calendar_id, TodoModel.user_id == current_user.username).delete()
     
     db.delete(calendar)
     db.commit()
     return {"message": "Calendar and associated todos deleted successfully"}
 
-# ================= PROJECT ENDPOINTS =================
-
-@app.get("/api/projects", response_model=List[Project])
-def get_projects(db: Session = Depends(get_db)):
-    return db.query(ProjectModel).all()
-
-@app.post("/api/projects", response_model=Project)
-def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
-    project_id = str(int(time.time() * 1000))
-    
-    db_project = ProjectModel(
-        id=project_id,
-        name=project.name,
-        color=project.color,
-        description=project.description
-    )
-    
-    db.add(db_project)
-    db.commit()
-    db.refresh(db_project)
-    return db_project
-
-@app.put("/api/projects/{project_id}", response_model=Project)
-def update_project(project_id: str, project_update: ProjectUpdate, db: Session = Depends(get_db)):
-    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    for field, value in project_update.dict(exclude_unset=True).items():
-        setattr(project, field, value)
-    
-    db.commit()
-    db.refresh(project)
-    return project
-
-@app.delete("/api/projects/{project_id}")
-def delete_project(project_id: str, db: Session = Depends(get_db)):
-    project = db.query(ProjectModel).filter(ProjectModel.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    # Delete associated todos
-    db.query(TodoModel).filter(TodoModel.project_id == project_id).delete()
-    
-    db.delete(project)
-    db.commit()
-    return {"message": "Project and associated todos deleted successfully"}
-
 # ================= TEMPLATE ENDPOINTS =================
 
 @app.get("/api/templates", response_model=List[Template])
-def get_templates(db: Session = Depends(get_db)):
-    return db.query(TemplateModel).all()
+def get_templates(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return db.query(TemplateModel).filter(TemplateModel.user_id == current_user.username).all()
 
 @app.post("/api/templates", response_model=Template)
-def create_template(template: TemplateCreate, db: Session = Depends(get_db)):
+def create_template(template: TemplateCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     template_id = str(int(time.time() * 1000))
     
     db_template = TemplateModel(
         id=template_id,
+        user_id=current_user.username,
         name=template.name,
         title=template.title,
         description=template.description,
@@ -226,7 +217,6 @@ def create_template(template: TemplateCreate, db: Session = Depends(get_db)):
         end_date=template.end_date,
         estimated_time=template.estimated_time,
         priority=template.priority,
-        project_id=template.project_id,
         calendar_id=template.calendar_id
     )
     
@@ -236,8 +226,8 @@ def create_template(template: TemplateCreate, db: Session = Depends(get_db)):
     return db_template
 
 @app.delete("/api/templates/{template_id}")
-def delete_template(template_id: str, db: Session = Depends(get_db)):
-    template = db.query(TemplateModel).filter(TemplateModel.id == template_id).first()
+def delete_template(template_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    template = db.query(TemplateModel).filter(TemplateModel.id == template_id, TemplateModel.user_id == current_user.username).first()
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
     
@@ -248,40 +238,30 @@ def delete_template(template_id: str, db: Session = Depends(get_db)):
 # ================= DATA MIGRATION ENDPOINT =================
 
 @app.post("/api/migrate")
-def migrate_data(data: MigrationData, db: Session = Depends(get_db)):
+def migrate_data(data: MigrationData, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Endpoint to migrate data from localStorage to database"""
     try:
-        # Clear existing data
-        db.query(TodoModel).delete()
-        db.query(CalendarModel).delete()
-        db.query(TemplateModel).delete()
-        # Don't clear projects as they have defaults
+        # Clear existing data for this user only
+        db.query(TodoModel).filter(TodoModel.user_id == current_user.username).delete()
+        db.query(CalendarModel).filter(CalendarModel.user_id == current_user.username).delete()
+        db.query(TemplateModel).filter(TemplateModel.user_id == current_user.username).delete()
         
         # Migrate calendars
         for cal_data in data.calendars:
             calendar = CalendarModel(
                 id=cal_data.get('id', str(int(time.time() * 1000))),
+                user_id=current_user.username,
                 name=cal_data['name'],
                 color=cal_data['color'],
                 is_default=cal_data.get('isDefault', False)
             )
             db.add(calendar)
         
-        # Migrate projects (only if not default ones)
-        for proj_data in data.projects:
-            if proj_data['id'] not in ['personal', 'work', 'health']:
-                project = ProjectModel(
-                    id=proj_data['id'],
-                    name=proj_data['name'],
-                    color=proj_data['color'],
-                    description=proj_data.get('description')
-                )
-                db.add(project)
-        
         # Migrate templates
         for temp_data in data.templates:
             template = TemplateModel(
                 id=temp_data.get('id', str(int(time.time() * 1000))),
+                user_id=current_user.username,
                 name=temp_data['name'],
                 title=temp_data['title'],
                 description=temp_data.get('description'),
@@ -289,7 +269,6 @@ def migrate_data(data: MigrationData, db: Session = Depends(get_db)):
                 end_date=temp_data.get('endDate'),
                 estimated_time=temp_data.get('estimatedTime'),
                 priority=temp_data.get('priority', 'medium'),
-                project_id=temp_data['projectId'],
                 calendar_id=temp_data.get('calendarId')
             )
             db.add(template)
@@ -299,13 +278,13 @@ def migrate_data(data: MigrationData, db: Session = Depends(get_db)):
             # Convert frontend field names to backend field names
             todo = TodoModel(
                 id=todo_data['id'],
+                user_id=current_user.username,
                 title=todo_data['title'],
                 description=todo_data.get('description'),
                 start_date=todo_data.get('startDate'),
                 end_date=todo_data.get('endDate'),
                 estimated_time=todo_data.get('estimatedTime'),
                 priority=todo_data.get('priority', 'medium'),
-                project_id=todo_data['projectId'],
                 calendar_id=todo_data.get('calendarId'),
                 is_completed=todo_data.get('isCompleted', False),
                 created_at=datetime.fromisoformat(todo_data['createdAt'].replace('Z', '+00:00')) if todo_data.get('createdAt') else datetime.utcnow(),
@@ -320,7 +299,6 @@ def migrate_data(data: MigrationData, db: Session = Depends(get_db)):
         return {"message": "Data migrated successfully", "migrated": {
             "todos": len(data.todos),
             "calendars": len(data.calendars),
-            "projects": len([p for p in data.projects if p['id'] not in ['personal', 'work', 'health']]),
             "templates": len(data.templates)
         }}
         

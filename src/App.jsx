@@ -1,18 +1,61 @@
-import React, { useState } from 'react'
-import { Calendar, CheckSquare, Plus, Settings, BarChart3, CalendarDays, AlertCircle, Loader2 } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Calendar, CheckSquare, Plus, CalendarDays, AlertCircle, Loader2, LogOut, User } from 'lucide-react'
 import TodayView from './components/TodayView'
 import MultiCalendarView from './components/MultiCalendarView'
 import TodoCreator from './components/TodoCreator'
-import ProjectManager from './components/ProjectManager'
-import Analytics from './components/Analytics'
+import Login from './components/Login'
+import Register from './components/Register'
 import { TodoProvider, useTodos } from './contexts/TodoContext'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 
 function AppContent() {
-  const { loading, error } = useTodos()
+  const { loading, error, initializeData, resetData } = useTodos()
+  const { user, isAuthenticated, logout, loading: authLoading } = useAuth()
   const [activeTab, setActiveTab] = useState('calendars')
   const [showTodoCreator, setShowTodoCreator] = useState(false)
-  const [showProjectManager, setShowProjectManager] = useState(false)
-  const [showAnalytics, setShowAnalytics] = useState(false)
+  const [showRegister, setShowRegister] = useState(false)
+
+  // Initialize data when authenticated, reset when not authenticated
+  useEffect(() => {
+    if (isAuthenticated && initializeData && user) {
+      initializeData(user.username)
+    } else if (!isAuthenticated && resetData) {
+      resetData()
+    }
+  }, [isAuthenticated, initializeData, resetData, user])
+
+  // Show login/register screen if not authenticated
+  if (!isAuthenticated && !authLoading) {
+    if (showRegister) {
+      return (
+        <Register 
+          onRegisterSuccess={() => {
+            setShowRegister(false)
+            // The user is automatically logged in after registration
+            // The auth context will update and show the main app
+          }}
+          onSwitchToLogin={() => setShowRegister(false)}
+        />
+      )
+    }
+    return (
+      <Login 
+        onSwitchToRegister={() => setShowRegister(true)}
+      />
+    )
+  }
+
+  // Show loading state during auth check
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    )
+  }
 
   const tabs = [
     { id: 'calendars', label: 'My Calendars', icon: CalendarDays },
@@ -62,26 +105,25 @@ function AppContent() {
           </div>
           
           <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setShowAnalytics(true)}
-              className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-              title="Analytics"
-            >
-              <BarChart3 className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setShowProjectManager(true)}
-              className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-              title="Manage Projects"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
+            <div className="flex items-center space-x-2 text-gray-600 mr-4">
+              <User className="w-4 h-4" />
+              <span className="text-sm">Welcome, {user?.username}</span>
+            </div>
+            
             <button
               onClick={() => setShowTodoCreator(true)}
               className="bg-gradient-to-r from-blue-500 to-purple-500 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-purple-600 transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
             >
               <Plus className="w-4 h-4" />
               <span>New Todo</span>
+            </button>
+            
+            <button
+              onClick={logout}
+              className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
             </button>
           </div>
         </div>
@@ -118,21 +160,17 @@ function AppContent() {
       {showTodoCreator && (
         <TodoCreator onClose={() => setShowTodoCreator(false)} />
       )}
-      {showProjectManager && (
-        <ProjectManager onClose={() => setShowProjectManager(false)} />
-      )}
-      {showAnalytics && (
-        <Analytics onClose={() => setShowAnalytics(false)} />
-      )}
     </div>
   )
 }
 
 function App() {
   return (
-    <TodoProvider>
-      <AppContent />
-    </TodoProvider>
+    <AuthProvider>
+      <TodoProvider>
+        <AppContent />
+      </TodoProvider>
+    </AuthProvider>
   )
 }
 

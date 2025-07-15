@@ -273,7 +273,6 @@ function WeekOverview({ calendar = null, showHeader = true }) {
     const todoData = {
       title: quickAddData.title,
       priority: 'medium',
-      projectId: 'personal',
       startDate: quickAddData.startDate,
       endDate: quickAddData.endDate,
       calendarId: calendar ? calendar.id : 'main'
@@ -1010,20 +1009,6 @@ function WeekOverview({ calendar = null, showHeader = true }) {
                             • {taskCalendar.name}
                           </span>
                         )}
-                      </div>
-                    </div>
-                    
-                    {/* Double-tap indicator */}
-                    <div className="flex-shrink-0 ml-2">
-                      <div className={clsx(
-                        'text-xs px-1 py-0.5 rounded flex items-center justify-center',
-                        {
-                          'text-gray-600 bg-gray-50': !task.isCompleted && (!isInResizeMode || resizeModeTask?.id !== task.id),
-                          'text-blue-600 bg-blue-50 animate-pulse': isInResizeMode && resizeModeTask?.id === task.id,
-                          'text-gray-500 bg-gray-50': task.isCompleted
-                        }
-                      )}>
-                        ⏲
                       </div>
                     </div>
                   </div>
