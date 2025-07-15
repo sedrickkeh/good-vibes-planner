@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "good-vibes-planner-backend"
+version = "0.1.0"
+description = "Backend for Good Vibes Planner"
+authors = ["Your Name <your.email@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+fastapi = "0.88.0"
+uvicorn = {extras = ["standard"], version = "0.20.0"}
+sqlalchemy = "1.4.44"
+python-jose = {extras = ["cryptography"], version = "3.3.0"}
+passlib = {extras = ["bcrypt"], version = "1.7.4"}
+python-multipart = "0.0.6"
+pydantic = "1.10.2"
+typing-extensions = "4.4.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api" 
