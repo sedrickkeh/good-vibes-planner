@@ -15,7 +15,7 @@ class Settings:
     DEFAULT_PASSWORD: str = os.getenv("DEFAULT_PASSWORD", "admin123")
     
     # CORS Configuration - Updated for production
-    CORS_ORIGINS: List[str] = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,https://good-vibes-planner.vercel.app,https://your-actual-vercel-url.vercel.app,https://*.replit.dev,https://*.repl.co").split(",")
+    CORS_ORIGINS: List[str] = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,https://good-vibes-planner.vercel.app,https://your-username.pythonanywhere.com").split(",")
     
     # Server Configuration
     HOST: str = os.getenv("HOST", "0.0.0.0")
