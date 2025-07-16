@@ -64,3 +64,4 @@ Thumbs.db
 # Local development scripts
 start.bat
 start.sh 
+.vercel

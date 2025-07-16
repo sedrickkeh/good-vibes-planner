@@ -164,3 +164,51 @@ Your Good Vibes Planner is now live! Share the URL with friends and family to st
 - Add email notifications
 - Implement data backup
 - Add more advanced features 
+
+# Deployment Instructions
+
+## Frontend Deployment (Vercel)
+
+### Prerequisites
+1. Backend deployed and running on PythonAnywhere
+2. Vercel account created
+3. GitHub repository connected to Vercel
+
+### Steps to Deploy
+
+1. **Update API URL**
+   - Replace `yourusername` in `src/config/api.js` with your actual PythonAnywhere username
+   - Example: `https://sedrickkeh.pythonanywhere.com/api`
+
+2. **Deploy to Vercel**
+   ```bash
+   # Install Vercel CLI (if not already installed)
+   npm install -g vercel
+
+   # Deploy from project root
+   vercel
+
+   # Follow the prompts:
+   # - Link to existing project or create new one
+   # - Set build command: npm run build
+   # - Set output directory: dist
+   ```
+
+3. **Configure Environment Variables**
+   In Vercel dashboard:
+   - Go to Project Settings → Environment Variables
+   - Add: `VITE_API_URL` = `https://yourusername.pythonanywhere.com/api`
+
+4. **Redeploy**
+   After adding environment variables, trigger a new deployment:
+   ```bash
+   vercel --prod
+   ```
+
+### Environment Variables
+- `VITE_API_URL`: Your PythonAnywhere backend URL (https://yourusername.pythonanywhere.com/api)
+
+### Troubleshooting
+- Ensure CORS is configured on backend for your Vercel domain
+- Check browser console for any API connection errors
+- Verify environment variables are set correctly in Vercel dashboard 
