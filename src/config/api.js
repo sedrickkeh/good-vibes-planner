@@ -2,8 +2,8 @@
 const getApiBaseUrl = () => {
   // Check if we're in production
   if (import.meta.env.PROD) {
-    // Use environment variable if set, otherwise use PythonAnywhere URL
-    return import.meta.env.VITE_API_URL || 'http://sedrickkeh.pythonanywhere.com/api'
+    // Use environment variable if set, otherwise use PythonAnywhere URL with HTTPS
+    return import.meta.env.VITE_API_URL || 'https://sedrickkeh.pythonanywhere.com/api'
   }
   
   // Development environment

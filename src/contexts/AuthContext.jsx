@@ -58,10 +58,10 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
-    isAuthenticated,
-    loading,
     login,
     logout,
+    isAuthenticated,
+    loading
   };
 
   return (
