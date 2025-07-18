@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, useState } from 'react'
+import React, { createContext, useContext, useReducer, useEffect, useState, useCallback } from 'react'
 import apiClient from '../services/api'
 
 const TodoContext = createContext()
@@ -11,17 +11,24 @@ const initialState = {
   error: null
 }
 
-function todoReducer(state, action) {
+const todoReducer = (state, action) => {
   switch (action.type) {
     case 'SET_LOADING':
-      return { ...state, loading: action.payload }
+      return {
+        ...state,
+        loading: action.payload
+      }
     
     case 'SET_ERROR':
-      return { ...state, error: action.payload, loading: false }
+      return {
+        ...state,
+        error: action.payload,
+        loading: false
+      }
     
     case 'LOAD_ALL_DATA':
-      return { 
-        ...state, 
+      return {
+        ...state,
         todos: action.payload.todos || [],
         calendars: action.payload.calendars || [],
         templates: action.payload.templates || [],
@@ -29,17 +36,17 @@ function todoReducer(state, action) {
         error: null
       }
     
-    case 'SET_TODOS':
-      return { ...state, todos: action.payload }
-    
     case 'ADD_TODO':
-      return { ...state, todos: [...state.todos, action.payload] }
+      return {
+        ...state,
+        todos: [...state.todos, action.payload]
+      }
     
     case 'UPDATE_TODO':
       return {
         ...state,
-        todos: state.todos.map(todo =>
-          todo.id === action.payload.id ? { ...todo, ...action.payload } : todo
+        todos: state.todos.map(todo => 
+          todo.id === action.payload.id ? action.payload : todo
         )
       }
     
@@ -49,32 +56,32 @@ function todoReducer(state, action) {
         todos: state.todos.filter(todo => todo.id !== action.payload)
       }
     
-    case 'SET_CALENDARS':
-      return { ...state, calendars: action.payload }
-    
     case 'ADD_CALENDAR':
-      return { ...state, calendars: [...state.calendars, action.payload] }
+      return {
+        ...state,
+        calendars: [...state.calendars, action.payload]
+      }
     
     case 'UPDATE_CALENDAR':
       return {
         ...state,
-        calendars: state.calendars.map(calendar =>
-          calendar.id === action.payload.id ? { ...calendar, ...action.payload } : calendar
+        calendars: state.calendars.map(calendar => 
+          calendar.id === action.payload.id ? action.payload : calendar
         )
       }
     
     case 'DELETE_CALENDAR':
       return {
         ...state,
-        calendars: state.calendars.filter(calendar => calendar.id !== action.payload.id),
-        todos: state.todos.filter(todo => todo.calendarId !== action.payload.id)
+        calendars: state.calendars.filter(calendar => calendar.id !== action.payload),
+        todos: state.todos.filter(todo => todo.calendarId !== action.payload)
       }
     
-    case 'SET_TEMPLATES':
-      return { ...state, templates: action.payload }
-    
     case 'ADD_TEMPLATE':
-      return { ...state, templates: [...state.templates, action.payload] }
+      return {
+        ...state,
+        templates: [...state.templates, action.payload]
+      }
     
     case 'DELETE_TEMPLATE':
       return {
@@ -98,61 +105,37 @@ export function TodoProvider({ children }) {
     ...apiTodo,
     startDate: apiTodo.start_date,
     endDate: apiTodo.end_date,
-    estimatedTime: apiTodo.estimated_time,
-    calendarId: apiTodo.calendar_id,
-    isCompleted: apiTodo.is_completed,
     createdAt: apiTodo.created_at,
-    completedAt: apiTodo.completed_at,
-    isRecurring: apiTodo.is_recurring,
-    recurringPattern: apiTodo.recurring_pattern,
-    recurringCount: apiTodo.recurring_count
+    calendarId: apiTodo.calendar_id
   })
 
-  // Helper function to convert frontend format to API format
-  const transformToApiTodo = (todo) => ({
-    title: todo.title,
-    description: todo.description || null,
-    start_date: todo.startDate || null,
-    end_date: todo.endDate || null,
-    estimated_time: todo.estimatedTime || null,
-    priority: todo.priority || 'medium',
-    calendar_id: todo.calendarId || null,
-    is_recurring: todo.isRecurring || false,
-    recurring_pattern: todo.recurringPattern || null,
-    recurring_count: todo.recurringCount || null
+  // Helper function to convert frontend fields to API format
+  const transformToApiTodo = (frontendTodo) => ({
+    ...frontendTodo,
+    start_date: frontendTodo.startDate,
+    end_date: frontendTodo.endDate,
+    calendar_id: frontendTodo.calendarId
   })
 
-  // Helper function to convert API response fields for calendars
-  const transformApiCalendar = (apiCalendar) => ({
-    ...apiCalendar,
-    isDefault: apiCalendar.is_default
-  })
-
-  // Helper function to convert frontend calendar to API format
-  const transformToApiCalendar = (calendar) => ({
-    name: calendar.name,
-    color: calendar.color,
-    is_default: calendar.isDefault || false
-  })
-
-  // Load all data from API
   const loadAllData = async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true })
       
-      const [todos, calendars, templates] = await Promise.all([
+      const [todosResponse, calendarsResponse, templatesResponse] = await Promise.all([
         apiClient.getTodos(),
         apiClient.getCalendars(),
         apiClient.getTemplates()
       ])
-
-      dispatch({
-        type: 'LOAD_ALL_DATA',
-        payload: {
-          todos: todos.map(transformApiTodo),
-          calendars: calendars.map(transformApiCalendar),
-          templates
-        }
+      
+      const transformedTodos = todosResponse.map(transformApiTodo)
+      
+      dispatch({ 
+        type: 'LOAD_ALL_DATA', 
+        payload: { 
+          todos: transformedTodos, 
+          calendars: calendarsResponse, 
+          templates: templatesResponse 
+        } 
       })
     } catch (error) {
       console.error('Failed to load data:', error)
@@ -160,47 +143,32 @@ export function TodoProvider({ children }) {
     }
   }
 
-  // Attempt data migration from localStorage
   const attemptMigration = async () => {
     if (migrationAttempted) return
     
     try {
-      const savedData = localStorage.getItem('good-vibes-data')
-      if (savedData) {
-        const parsedData = JSON.parse(savedData)
-        
-        // Check if there's meaningful data to migrate
-        const hasData = (parsedData.todos && parsedData.todos.length > 0) ||
-                       (parsedData.calendars && parsedData.calendars.length > 0) ||
-                       (parsedData.templates && parsedData.templates.length > 0)
-        
-        if (hasData) {
-          console.log('Migrating localStorage data to database...')
-          await apiClient.migrateData(parsedData)
-          console.log('Data migration completed successfully')
-          
-          // Clear localStorage after successful migration
-          localStorage.removeItem('good-vibes-data')
-        }
-      }
+      await apiClient.migrateData({
+        todos: [],
+        calendars: [],
+        templates: []
+      })
     } catch (error) {
-      console.error('Data migration failed:', error)
-      // Don't show error to user, just log it and continue
+      console.log('Migration failed or not needed')
     } finally {
       setMigrationAttempted(true)
     }
   }
 
   // Function to reset context state (called when user logs out)
-  const resetData = () => {
+  const resetData = useCallback(() => {
     dispatch({ type: 'LOAD_ALL_DATA', payload: { todos: [], calendars: [], templates: [] } })
     setDataInitialized(false)
     setMigrationAttempted(false)
     setCurrentUser(null)
-  }
+  }, [])
 
   // Function to initialize data (called externally when authenticated)
-  const initializeData = async (username = null, forceReload = false) => {
+  const initializeData = useCallback(async (username = null, forceReload = false) => {
     // If different user, always reload
     if (username && currentUser && username !== currentUser) {
       forceReload = true
@@ -217,7 +185,7 @@ export function TodoProvider({ children }) {
       console.log('Data initialization failed - likely not authenticated')
       dispatch({ type: 'SET_ERROR', payload: 'Authentication required' })
     }
-  }
+  }, [currentUser, dataInitialized])
 
   // Todo operations
   const addTodo = async (todo) => {
@@ -245,17 +213,7 @@ export function TodoProvider({ children }) {
 
   const updateTodo = async (id, updates) => {
     try {
-      // Transform field names for API
-      const apiUpdates = {}
-      if (updates.title !== undefined) apiUpdates.title = updates.title
-      if (updates.description !== undefined) apiUpdates.description = updates.description
-      if (updates.startDate !== undefined) apiUpdates.start_date = updates.startDate
-      if (updates.endDate !== undefined) apiUpdates.end_date = updates.endDate
-      if (updates.estimatedTime !== undefined) apiUpdates.estimated_time = updates.estimatedTime
-      if (updates.priority !== undefined) apiUpdates.priority = updates.priority
-      if (updates.calendarId !== undefined) apiUpdates.calendar_id = updates.calendarId
-      if (updates.isCompleted !== undefined) apiUpdates.is_completed = updates.isCompleted
-
+      const apiUpdates = transformToApiTodo(updates)
       const updatedTodo = await apiClient.updateTodo(id, apiUpdates)
       const transformedTodo = transformApiTodo(updatedTodo)
       
@@ -279,15 +237,11 @@ export function TodoProvider({ children }) {
     }
   }
 
-  // Calendar operations
   const addCalendar = async (calendar) => {
     try {
-      const apiCalendar = transformToApiCalendar(calendar)
-      const createdCalendar = await apiClient.createCalendar(apiCalendar)
-      const transformedCalendar = transformApiCalendar(createdCalendar)
-      
-      dispatch({ type: 'ADD_CALENDAR', payload: transformedCalendar })
-      return transformedCalendar
+      const createdCalendar = await apiClient.createCalendar(calendar)
+      dispatch({ type: 'ADD_CALENDAR', payload: createdCalendar })
+      return createdCalendar
     } catch (error) {
       console.error('Failed to create calendar:', error)
       dispatch({ type: 'SET_ERROR', payload: 'Failed to create calendar' })
@@ -297,16 +251,9 @@ export function TodoProvider({ children }) {
 
   const updateCalendar = async (id, updates) => {
     try {
-      const apiUpdates = {}
-      if (updates.name !== undefined) apiUpdates.name = updates.name
-      if (updates.color !== undefined) apiUpdates.color = updates.color
-      if (updates.isDefault !== undefined) apiUpdates.is_default = updates.isDefault
-
-      const updatedCalendar = await apiClient.updateCalendar(id, apiUpdates)
-      const transformedCalendar = transformApiCalendar(updatedCalendar)
-      
-      dispatch({ type: 'UPDATE_CALENDAR', payload: transformedCalendar })
-      return transformedCalendar
+      const updatedCalendar = await apiClient.updateCalendar(id, updates)
+      dispatch({ type: 'UPDATE_CALENDAR', payload: updatedCalendar })
+      return updatedCalendar
     } catch (error) {
       console.error('Failed to update calendar:', error)
       dispatch({ type: 'SET_ERROR', payload: 'Failed to update calendar' })
@@ -317,7 +264,7 @@ export function TodoProvider({ children }) {
   const deleteCalendar = async (id) => {
     try {
       await apiClient.deleteCalendar(id)
-      dispatch({ type: 'DELETE_CALENDAR', payload: { id } })
+      dispatch({ type: 'DELETE_CALENDAR', payload: id })
     } catch (error) {
       console.error('Failed to delete calendar:', error)
       dispatch({ type: 'SET_ERROR', payload: 'Failed to delete calendar' })
@@ -325,32 +272,11 @@ export function TodoProvider({ children }) {
     }
   }
 
-  // Template operations
   const addTemplate = async (template) => {
     try {
-      const apiTemplate = {
-        name: template.name,
-        title: template.title,
-        description: template.description || null,
-        start_date: template.startDate || null,
-        end_date: template.endDate || null,
-        estimated_time: template.estimatedTime || null,
-        priority: template.priority || 'medium',
-        calendar_id: template.calendarId || null
-      }
-      
-      const createdTemplate = await apiClient.createTemplate(apiTemplate)
-      // Transform back to frontend format
-      const transformedTemplate = {
-        ...createdTemplate,
-        startDate: createdTemplate.start_date,
-        endDate: createdTemplate.end_date,
-        estimatedTime: createdTemplate.estimated_time,
-        calendarId: createdTemplate.calendar_id
-      }
-      
-      dispatch({ type: 'ADD_TEMPLATE', payload: transformedTemplate })
-      return transformedTemplate
+      const createdTemplate = await apiClient.createTemplate(template)
+      dispatch({ type: 'ADD_TEMPLATE', payload: createdTemplate })
+      return createdTemplate
     } catch (error) {
       console.error('Failed to create template:', error)
       dispatch({ type: 'SET_ERROR', payload: 'Failed to create template' })
@@ -369,29 +295,36 @@ export function TodoProvider({ children }) {
     }
   }
 
-  const createTodoFromTemplate = async (templateId, overrides = {}) => {
-    const template = state.templates.find(t => t.id === templateId)
-    if (!template) return
+  const createTodoFromTemplate = async (templateId, customizations = {}) => {
+    try {
+      const template = state.templates.find(t => t.id === templateId)
+      if (!template) {
+        throw new Error('Template not found')
+      }
 
-    // Use the first available calendar if no calendarId is specified
-    const defaultCalendarId = overrides.calendarId || (state.calendars.length > 0 ? state.calendars[0].id : null)
+      const todo = {
+        title: template.title,
+        description: template.description,
+        calendarId: template.calendarId,
+        estimatedTime: template.estimatedTime,
+        priority: template.priority,
+        ...customizations
+      }
 
-    const todo = {
-      title: template.title,
-      description: template.description,
-      startDate: template.startDate,
-      endDate: template.endDate,
-      estimatedTime: template.estimatedTime,
-      priority: template.priority,
-      calendarId: defaultCalendarId,
-      ...overrides
+      return await addTodo(todo)
+    } catch (error) {
+      console.error('Failed to create todo from template:', error)
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to create todo from template' })
+      throw error
     }
-    
-    return await addTodo(todo)
   }
 
   const value = {
-    ...state,
+    todos: state.todos,
+    calendars: state.calendars,
+    templates: state.templates,
+    loading: state.loading,
+    error: state.error,
     addTodo,
     updateTodo,
     deleteTodo,
