@@ -12,5 +12,5 @@ cd good-vibes-planner
 git pull origin main
 
 # Reload website
-pa website reload --domain yourusername.pythonanywhere.com
+pa website reload --domain sedrickkeh.pythonanywhere.com
 ```
