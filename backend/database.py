@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Base, Calendar as CalendarModel
+from models import Base, Calendar as CalendarModel, User as UserModel
 from config import settings
 import time
 

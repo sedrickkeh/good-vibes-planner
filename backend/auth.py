@@ -7,7 +7,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from config import settings
-from database import init_user_data
+from database import SessionLocal
+from models import User as UserModel
 
 # Configuration
 SECRET_KEY = settings.SECRET_KEY
@@ -38,14 +39,6 @@ class UserInDB(User):
 # Security
 security = HTTPBearer()
 
-# Fake user database (in production, use a real database)
-fake_users_db = {
-    settings.DEFAULT_USERNAME: {
-        "username": settings.DEFAULT_USERNAME,
-        "hashed_password": pwd_context.hash(settings.DEFAULT_PASSWORD)
-    }
-}
-
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
@@ -53,27 +46,42 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 def get_user(username: str):
-    if username in fake_users_db:
-        user_dict = fake_users_db[username]
-        return UserInDB(**user_dict)
+    db = SessionLocal()
+    try:
+        user = db.query(UserModel).filter(UserModel.username == username).first()
+        if user:
+            return UserInDB(username=user.username, hashed_password=user.hashed_password)
+        return None
+    finally:
+        db.close()
 
 def create_user(user_create: UserCreate):
-    if user_create.username in fake_users_db:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already exists"
+    db = SessionLocal()
+    try:
+        # Check if user already exists
+        existing_user = db.query(UserModel).filter(UserModel.username == user_create.username).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already exists"
+            )
+        
+        # Create new user
+        hashed_password = get_password_hash(user_create.password)
+        db_user = UserModel(
+            username=user_create.username,
+            hashed_password=hashed_password
         )
-    
-    hashed_password = get_password_hash(user_create.password)
-    fake_users_db[user_create.username] = {
-        "username": user_create.username,
-        "hashed_password": hashed_password
-    }
-    
-    # Initialize default data for the new user
-    init_user_data(user_create.username)
-    
-    return User(username=user_create.username)
+        db.add(db_user)
+        db.commit()
+        
+        # Initialize default data for the new user
+        from database import init_user_data
+        init_user_data(user_create.username)
+        
+        return User(username=user_create.username)
+    finally:
+        db.close()
 
 def authenticate_user(username: str, password: str):
     user = get_user(username)
@@ -111,4 +119,25 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     user = get_user(username=token_data.username)
     if user is None:
         raise credentials_exception
-    return user 
+    return user
+
+# Create default admin user if it doesn't exist
+def ensure_admin_user():
+    db = SessionLocal()
+    try:
+        admin_user = db.query(UserModel).filter(UserModel.username == settings.DEFAULT_USERNAME).first()
+        if not admin_user:
+            print(f"Creating default admin user: {settings.DEFAULT_USERNAME}")
+            db_user = UserModel(
+                username=settings.DEFAULT_USERNAME,
+                hashed_password=get_password_hash(settings.DEFAULT_PASSWORD)
+            )
+            db.add(db_user)
+            db.commit()
+            
+            # Initialize default data for admin
+            from database import init_user_data
+            init_user_data(settings.DEFAULT_USERNAME)
+            print("Default admin user created with default calendars!")
+    finally:
+        db.close() 

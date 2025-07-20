@@ -26,6 +26,9 @@ from config import settings
 async def lifespan(app: FastAPI):
     # Startup
     init_db()
+    # Ensure admin user exists with default data
+    from auth import ensure_admin_user
+    ensure_admin_user()
     yield
     # Shutdown (if needed)
 

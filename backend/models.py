@@ -5,6 +5,13 @@ from datetime import datetime
 
 Base = declarative_base()
 
+class User(Base):
+    __tablename__ = "users"
+    
+    username = Column(String, primary_key=True, index=True)
+    hashed_password = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class Todo(Base):
     __tablename__ = "todos"
     
