@@ -244,7 +244,21 @@ def delete_template(template_id: str, db: Session = Depends(get_db), current_use
 def migrate_data(data: MigrationData, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Endpoint to migrate data from localStorage to database"""
     try:
-        # Clear existing data for this user only
+        # Only clear existing data if there's actually data to migrate
+        has_data_to_migrate = (
+            len(data.todos) > 0 or 
+            len(data.calendars) > 0 or 
+            len(data.templates) > 0
+        )
+        
+        if not has_data_to_migrate:
+            return {"message": "No data to migrate", "migrated": {
+                "todos": 0,
+                "calendars": 0,
+                "templates": 0
+            }}
+        
+        # Clear existing data for this user only (only if we have data to replace it)
         db.query(TodoModel).filter(TodoModel.user_id == current_user.username).delete()
         db.query(CalendarModel).filter(CalendarModel.user_id == current_user.username).delete()
         db.query(TemplateModel).filter(TemplateModel.user_id == current_user.username).delete()

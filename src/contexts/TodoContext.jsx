@@ -96,7 +96,6 @@ const todoReducer = (state, action) => {
 
 export function TodoProvider({ children }) {
   const [state, dispatch] = useReducer(todoReducer, initialState)
-  const [migrationAttempted, setMigrationAttempted] = useState(false)
   const [dataInitialized, setDataInitialized] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
 
@@ -143,27 +142,10 @@ export function TodoProvider({ children }) {
     }
   }
 
-  const attemptMigration = async () => {
-    if (migrationAttempted) return
-    
-    try {
-      await apiClient.migrateData({
-        todos: [],
-        calendars: [],
-        templates: []
-      })
-    } catch (error) {
-      console.log('Migration failed or not needed')
-    } finally {
-      setMigrationAttempted(true)
-    }
-  }
-
   // Function to reset context state (called when user logs out)
   const resetData = useCallback(() => {
     dispatch({ type: 'LOAD_ALL_DATA', payload: { todos: [], calendars: [], templates: [] } })
     setDataInitialized(false)
-    setMigrationAttempted(false)
     setCurrentUser(null)
   }, [])
 
@@ -177,7 +159,6 @@ export function TodoProvider({ children }) {
     if (dataInitialized && !forceReload) return
     
     try {
-      await attemptMigration()
       await loadAllData()
       setDataInitialized(true)
       setCurrentUser(username)
@@ -319,6 +300,19 @@ export function TodoProvider({ children }) {
     }
   }
 
+  // Manual migration function for users who have localStorage data
+  const migrateFromLocalStorage = async (localStorageData) => {
+    try {
+      const result = await apiClient.migrateData(localStorageData)
+      await loadAllData() // Reload data after migration
+      return result
+    } catch (error) {
+      console.error('Failed to migrate data:', error)
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to migrate data' })
+      throw error
+    }
+  }
+
   const value = {
     todos: state.todos,
     calendars: state.calendars,
@@ -336,7 +330,8 @@ export function TodoProvider({ children }) {
     createTodoFromTemplate,
     loadAllData,
     initializeData,
-    resetData
+    resetData,
+    migrateFromLocalStorage
   }
 
   return (
