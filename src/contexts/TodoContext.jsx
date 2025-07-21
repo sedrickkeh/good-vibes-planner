@@ -105,7 +105,13 @@ export function TodoProvider({ children }) {
     startDate: apiTodo.start_date,
     endDate: apiTodo.end_date,
     createdAt: apiTodo.created_at,
-    calendarId: apiTodo.calendar_id
+    calendarId: apiTodo.calendar_id,
+    isCompleted: apiTodo.is_completed,
+    completedAt: apiTodo.completed_at,
+    isRecurring: apiTodo.is_recurring,
+    recurringPattern: apiTodo.recurring_pattern,
+    recurringCount: apiTodo.recurring_count,
+    estimatedTime: apiTodo.estimated_time
   })
 
   // Helper function to convert frontend fields to API format
@@ -113,7 +119,13 @@ export function TodoProvider({ children }) {
     ...frontendTodo,
     start_date: frontendTodo.startDate,
     end_date: frontendTodo.endDate,
-    calendar_id: frontendTodo.calendarId
+    calendar_id: frontendTodo.calendarId,
+    is_completed: frontendTodo.isCompleted,
+    completed_at: frontendTodo.completedAt,
+    is_recurring: frontendTodo.isRecurring,
+    recurring_pattern: frontendTodo.recurringPattern,
+    recurring_count: frontendTodo.recurringCount,
+    estimated_time: frontendTodo.estimatedTime
   })
 
   const loadAllData = async () => {
