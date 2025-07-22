@@ -11,6 +11,7 @@ function WeekOverview({ calendar = null, showHeader = true }) {
   const [quickAddData, setQuickAddData] = useState({ 
     date: null, 
     title: '', 
+    description: '',
     startDate: '',
     endDate: ''
   })
@@ -42,6 +43,7 @@ function WeekOverview({ calendar = null, showHeader = true }) {
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 })
   const [contextMenuTask, setContextMenuTask] = useState(null)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showDescriptionModal, setShowDescriptionModal] = useState(false)
   const [editTaskData, setEditTaskData] = useState({
     id: null,
     title: '',
@@ -272,7 +274,7 @@ function WeekOverview({ calendar = null, showHeader = true }) {
     
     const todoData = {
       title: quickAddData.title,
-      priority: 'medium',
+      description: quickAddData.description,
       startDate: quickAddData.startDate,
       endDate: quickAddData.endDate,
       calendarId: calendar ? calendar.id : 'main'
@@ -290,6 +292,7 @@ function WeekOverview({ calendar = null, showHeader = true }) {
     setQuickAddData({ 
       date: null, 
       title: '', 
+      description: '',
       startDate: '',
       endDate: ''
     })
@@ -417,6 +420,7 @@ function WeekOverview({ calendar = null, showHeader = true }) {
     setQuickAddData({
       date: day,
       title: '',
+      description: '',
       startDate: dateString,
       endDate: dateString
     })
@@ -440,6 +444,7 @@ function WeekOverview({ calendar = null, showHeader = true }) {
       setQuickAddData({
         date: actualStartDay,
         title: '',
+        description: '',
         startDate: startDateString,
         endDate: endDateString
       })
@@ -574,6 +579,11 @@ function WeekOverview({ calendar = null, showHeader = true }) {
     }
     setShowContextMenu(false)
   }, [contextMenuTask])
+
+  const handleViewDescription = useCallback(() => {
+    setShowDescriptionModal(true)
+    setShowContextMenu(false)
+  }, [])
 
   const handleEditSubmit = useCallback((e) => {
     e.preventDefault()
@@ -750,6 +760,7 @@ function WeekOverview({ calendar = null, showHeader = true }) {
                           setQuickAddData({ 
                             date: day, 
                             title: '', 
+                            description: '',
                             startDate: dateString,
                             endDate: dateString
                           })
@@ -1044,6 +1055,19 @@ function WeekOverview({ calendar = null, showHeader = true }) {
                     required
                   />
                 </div>
+                <div>
+                  <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <textarea
+                    id="description"
+                    value={quickAddData.description}
+                    onChange={(e) => setQuickAddData({ ...quickAddData, description: e.target.value })}
+                    placeholder="Add more details..."
+                    rows="2"
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  />
+                </div>
                 <div className="flex space-x-4">
                   <div className="flex-1">
                     <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">
@@ -1107,6 +1131,12 @@ function WeekOverview({ calendar = null, showHeader = true }) {
             className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 transition-colors"
           >
             Edit Task
+          </button>
+          <button
+            onClick={handleViewDescription}
+            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            View Description
           </button>
           <button
             onClick={handleDeleteTask}
@@ -1202,6 +1232,99 @@ function WeekOverview({ calendar = null, showHeader = true }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Description Modal */}
+      {showDescriptionModal && contextMenuTask && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div 
+              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" 
+              onClick={() => setShowDescriptionModal(false)}
+            ></div>
+
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                      Task Details
+                    </h3>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Title
+                        </label>
+                        <p className="text-sm text-gray-900 bg-gray-50 rounded-md p-3">
+                          {contextMenuTask.title}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Description
+                        </label>
+                        <div className="text-sm text-gray-900 bg-gray-50 rounded-md p-3 min-h-20">
+                          {contextMenuTask.description ? (
+                            <p className="whitespace-pre-wrap">{contextMenuTask.description}</p>
+                          ) : (
+                            <p className="text-gray-500 italic">No description provided</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {contextMenuTask.startDate && contextMenuTask.endDate && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Date Range
+                          </label>
+                          <p className="text-sm text-gray-900 bg-gray-50 rounded-md p-3">
+                            {(() => {
+                              const startDate = parseTaskDate(contextMenuTask.startDate)
+                              const endDate = parseTaskDate(contextMenuTask.endDate)
+                              if (startDate && endDate) {
+                                if (isSameDay(startDate, endDate)) {
+                                  return format(startDate, 'EEEE, MMMM d, yyyy')
+                                } else {
+                                  return `${format(startDate, 'MMM d, yyyy')} - ${format(endDate, 'MMM d, yyyy')}`
+                                }
+                              }
+                              return 'Invalid date'
+                            })()}
+                          </p>
+                        </div>
+                      )}
+
+                      {contextMenuTask.estimatedTime && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Estimated Time
+                          </label>
+                          <p className="text-sm text-gray-900 bg-gray-50 rounded-md p-3">
+                            {contextMenuTask.estimatedTime} minutes
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={() => setShowDescriptionModal(false)}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -300,7 +300,6 @@ export function TodoProvider({ children }) {
         description: template.description,
         calendarId: template.calendarId,
         estimatedTime: template.estimatedTime,
-        priority: template.priority,
         ...customizations
       }
 

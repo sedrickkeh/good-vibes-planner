@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useTodos } from '../contexts/TodoContext'
-import { X, Calendar, Flag, Repeat, Save, Sparkles } from 'lucide-react'
+import { X, Calendar, Repeat, Save, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 
 function TodoCreator({ onClose }) {
@@ -11,7 +11,6 @@ function TodoCreator({ onClose }) {
     startDate: '',
     endDate: '',
     estimatedTime: '',
-    priority: 'medium',
     calendarId: calendars.length > 0 ? calendars[0].id : '',
     isRecurring: false,
     recurringPattern: 'daily',
@@ -90,7 +89,6 @@ function TodoCreator({ onClose }) {
       startDate: template.startDate || '',
       endDate: template.endDate || '',
       estimatedTime: template.estimatedTime || '',
-      priority: template.priority || 'medium',
       calendarId: template.calendarId || (calendars.length > 0 ? calendars[0].id : '')
     })
   }
@@ -216,49 +214,29 @@ function TodoCreator({ onClose }) {
             />
           </div>
 
-          {/* Priority and Calendar */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Priority */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Flag className="w-4 h-4 inline mr-1" />
-                Priority
-              </label>
+          {/* Calendar Selection */}
+          <div>
+            <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+              <Calendar className="w-4 h-4 mr-2" />
+              Calendar
+            </label>
+            {calendars.length > 0 ? (
               <select
-                value={formData.priority}
-                onChange={(e) => handleChange('priority', e.target.value)}
+                value={formData.calendarId}
+                onChange={(e) => handleChange('calendarId', e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
+                {calendars.map(calendar => (
+                  <option key={calendar.id} value={calendar.id}>
+                    {calendar.name}
+                  </option>
+                ))}
               </select>
-            </div>
-
-            {/* Calendar Selection */}
-            <div className="space-y-2">
-              <label className="flex items-center text-sm font-medium text-gray-700">
-                <Calendar className="w-4 h-4 mr-2" />
-                Calendar
-              </label>
-              {calendars.length > 0 ? (
-                <select
-                  value={formData.calendarId}
-                  onChange={(e) => handleChange('calendarId', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  {calendars.map(calendar => (
-                    <option key={calendar.id} value={calendar.id}>
-                      {calendar.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
-                  No calendars available. Create a calendar first in the "My Calendars" tab.
-                </div>
-              )}
-            </div>
+            ) : (
+              <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                No calendars available. Create a calendar first in the "My Calendars" tab.
+              </div>
+            )}
           </div>
 
           {/* Recurring Options */}
