@@ -9,9 +9,6 @@ function TodoItem({ todo, compact = false }) {
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(todo.title)
   const [showActions, setShowActions] = useState(false)
-  const [showContextMenu, setShowContextMenu] = useState(false)
-  const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 })
-  const [showDescriptionModal, setShowDescriptionModal] = useState(false)
 
   // Helper function to safely parse date strings and ensure local timezone
   const parseTaskDate = (dateString) => {
@@ -60,18 +57,6 @@ function TodoItem({ todo, compact = false }) {
     }
   }
 
-  const handleRightClick = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setContextMenuPos({ x: e.clientX, y: e.clientY })
-    setShowContextMenu(true)
-  }
-
-  const handleViewDescription = () => {
-    setShowDescriptionModal(true)
-    setShowContextMenu(false)
-  }
-
   const handleKeyPress = (e) => {
     e.stopPropagation() // Prevent keyboard events from bubbling up
     if (e.key === 'Enter') {
@@ -94,24 +79,7 @@ function TodoItem({ todo, compact = false }) {
     return false
   })()
 
-  // Close context menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (showContextMenu) {
-        setShowContextMenu(false)
-      }
-    }
-    
-    if (showContextMenu) {
-      document.addEventListener('click', handleClickOutside)
-      document.addEventListener('contextmenu', handleClickOutside)
-    }
-    
-    return () => {
-      document.removeEventListener('click', handleClickOutside)
-      document.removeEventListener('contextmenu', handleClickOutside)
-    }
-  }, [showContextMenu])
+  // Removed context menu useEffect
 
   return (
     <div 
@@ -134,7 +102,6 @@ function TodoItem({ todo, compact = false }) {
       onMouseUp={(e) => {
         e.stopPropagation() // Prevent mouse up from bubbling up
       }}
-      onContextMenu={handleRightClick}
     >
       <div className="flex items-start space-x-3">
         {/* Checkbox */}
@@ -287,136 +254,7 @@ function TodoItem({ todo, compact = false }) {
       )}
 
       {/* Context Menu */}
-      {showContextMenu && (
-        <div
-          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-2 min-w-48"
-          style={{
-            left: `${contextMenuPos.x}px`,
-            top: `${contextMenuPos.y}px`,
-          }}
-        >
-          <button
-            onClick={handleViewDescription}
-            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-          >
-            View Description
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              handleDelete()
-              setShowContextMenu(false)
-            }}
-            className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
-          >
-            Delete Task
-          </button>
-        </div>
-      )}
-
-      {/* Description Modal */}
-      {showDescriptionModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div 
-              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" 
-              onClick={() => setShowDescriptionModal(false)}
-            ></div>
-
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                      Task Details
-                    </h3>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Title
-                        </label>
-                        <p className="text-sm text-gray-900 bg-gray-50 rounded-md p-3">
-                          {migratedTodo.title}
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Description
-                        </label>
-                        <div className="text-sm text-gray-900 bg-gray-50 rounded-md p-3 min-h-20">
-                          {migratedTodo.description ? (
-                            <p className="whitespace-pre-wrap">{migratedTodo.description}</p>
-                          ) : (
-                            <p className="text-gray-500 italic">No description provided</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {migratedTodo.startDate && migratedTodo.endDate && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Date Range
-                          </label>
-                          <p className="text-sm text-gray-900 bg-gray-50 rounded-md p-3">
-                            {(() => {
-                              const startDate = parseTaskDate(migratedTodo.startDate)
-                              const endDate = parseTaskDate(migratedTodo.endDate)
-                              if (startDate && endDate) {
-                                if (isSameDay(startDate, endDate)) {
-                                  return format(startDate, 'EEEE, MMMM d, yyyy')
-                                } else {
-                                  return `${format(startDate, 'MMM d, yyyy')} - ${format(endDate, 'MMM d, yyyy')}`
-                                }
-                              }
-                              return 'Invalid date'
-                            })()}
-                          </p>
-                        </div>
-                      )}
-
-                      {migratedTodo.estimatedTime && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Estimated Time
-                          </label>
-                          <p className="text-sm text-gray-900 bg-gray-50 rounded-md p-3">
-                            {migratedTodo.estimatedTime} minutes
-                          </p>
-                        </div>
-                      )}
-
-                      {migratedTodo.isCompleted && migratedTodo.completedAt && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Completed
-                          </label>
-                          <p className="text-sm text-green-600 bg-gray-50 rounded-md p-3">
-                            {formatDistanceToNow(new Date(migratedTodo.completedAt), { addSuffix: true })}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  onClick={() => setShowDescriptionModal(false)}
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Removed context menu component */}
     </div>
   )
 }
