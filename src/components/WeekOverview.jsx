@@ -56,7 +56,11 @@ function WeekOverview({ calendar = null, showHeader = true }) {
   
   // Calculate week with centerDate as the 3rd day (index 2)
   const weekStart = subDays(centerDate, 2) // 2 days before center date
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const day = addDays(weekStart, i)
+    // Normalize to midnight for consistent comparisons
+    return new Date(day.getFullYear(), day.getMonth(), day.getDate())
+  })
 
   // Navigation functions
   const goToPreviousWeek = () => {
@@ -173,12 +177,16 @@ function WeekOverview({ calendar = null, showHeader = true }) {
         
         if (!effectiveStartDate || !effectiveEndDate) return null
         
+        // Normalize task dates to midnight for consistent comparison
+        const normalizedStartDate = new Date(effectiveStartDate.getFullYear(), effectiveStartDate.getMonth(), effectiveStartDate.getDate())
+        const normalizedEndDate = new Date(effectiveEndDate.getFullYear(), effectiveEndDate.getMonth(), effectiveEndDate.getDate())
+        
         // First check if task overlaps with current week at all
         const weekStartDate = weekDays[0]
         const weekEndDate = weekDays[6]
         
         // Task must end on or after week start AND start on or before week end
-        if (effectiveEndDate < weekStartDate || effectiveStartDate > weekEndDate) {
+        if (normalizedEndDate < weekStartDate || normalizedStartDate > weekEndDate) {
           return null // Task doesn't overlap with current week
         }
         
@@ -190,29 +198,29 @@ function WeekOverview({ calendar = null, showHeader = true }) {
           const weekDay = weekDays[i]
           
           // Check if task starts on this day
-          if (startDayIndex === -1 && isSameDay(effectiveStartDate, weekDay)) {
+          if (startDayIndex === -1 && isSameDay(normalizedStartDate, weekDay)) {
             startDayIndex = i
           }
           
           // Check if task ends on this day
-          if (isSameDay(effectiveEndDate, weekDay)) {
+          if (isSameDay(normalizedEndDate, weekDay)) {
             endDayIndex = i
           }
           
           // If task spans this day (between start and end)
-          if (effectiveStartDate <= weekDay && weekDay <= effectiveEndDate) {
+          if (normalizedStartDate <= weekDay && weekDay <= normalizedEndDate) {
             if (startDayIndex === -1) startDayIndex = i
             endDayIndex = i
           }
         }
         
         // If task starts before this week, start from beginning of week
-        if (startDayIndex === -1 && effectiveStartDate < weekDays[0]) {
+        if (startDayIndex === -1 && normalizedStartDate < weekDays[0]) {
           startDayIndex = 0
         }
         
         // If task ends after this week, end at end of week
-        if (endDayIndex === -1 && effectiveEndDate > weekDays[6]) {
+        if (endDayIndex === -1 && normalizedEndDate > weekDays[6]) {
           endDayIndex = 6
         }
         

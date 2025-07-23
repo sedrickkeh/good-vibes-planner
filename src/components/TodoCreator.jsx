@@ -176,7 +176,6 @@ function TodoCreator({ onClose }) {
                   type="date"
                   value={formData.startDate}
                   onChange={(e) => handleChange('startDate', e.target.value)}
-                  min={format(new Date(), 'yyyy-MM-dd')}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -188,13 +187,13 @@ function TodoCreator({ onClose }) {
                   type="date"
                   value={formData.endDate}
                   onChange={(e) => handleChange('endDate', e.target.value)}
-                  min={formData.startDate || format(new Date(), 'yyyy-MM-dd')}
+                  min={formData.startDate}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Set the same date for both fields to create a single-day task
+              Set the same date for both fields to create a single-day task. Past dates are allowed.
             </p>
           </div>
 
